@@ -1,2 +1,4 @@
-c.exe
+*.exe
+*.out
+*.o
 save.txt
