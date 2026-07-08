@@ -160,6 +160,8 @@ void save_game(const Player& p, const Armor& a, const Weapon& w, Zombie& z) {
              << "Деньги: " << p.player_money << "\n"
              << "Макс_здоровье: " << a.player_max_hp << "\n"
              << "Урон: " << p.player_damage << "\n"
+             << "Патроны: " << w.cartridges << "\n"
+             << "Прочность оружия: " << w.endurance << "\n"
              << "Поглощение: " << a.armor_absorption << "\n"
              << "Множитель_урона: " << a.player_damage_multiplier << "\n"
              << "Множитель_лута: " << a.loot_speed_multiplier << "\n"
@@ -212,6 +214,10 @@ void load_game(Player& p, Armor& a, Weapon& w, Zombie& z) {
             a.player_max_hp = std::stoi(value_str);
         else if (key == "Урон")
             p.player_damage = std::stoi(value_str);
+        else if (key == "Патроны")
+            w.cartridges = std::stoi(value_str);
+        else if (key == "Прочность оружия")
+            w.endurance = std::stoi(value_str);
         else if (key == "Поглощение")
             a.armor_absorption = std::stod(value_str);
         else if (key == "Множитель_урона")
@@ -263,65 +269,78 @@ void level_up(Player& p, Armor& a, Weapon& w) {
     int choise_gif;
     std::cout << "На " << p.player_level << " уровне вы можете выбрать улучшение:\n";
 
-    while (true) {
-        if (gif_level == 1) {
-            std::cout << "[1]: +20 к максимальному здоровью.\n"
-                      << "[2]: +1200 монет к балансу.\n"
-                      << "[3]: +10% к скорости лута.\n";
-            std::cin >> choise_gif;
-            if (choise_gif == 1) {
-                a.player_max_hp += 20;
-                p.player_hp += 20;
-                if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
-                std::cout << "Максимальное здоровье увеличено до " << a.player_max_hp << ".\n";
-                break;
-            } else if (choise_gif == 2) {
-                p.player_money += 1200;
-                std::cout << "Теперь у вас " << p.player_money << " монет.\n";
-                break;
-            } else if (choise_gif == 3) {
-                a.loot_speed_multiplier += 0.1;
-                std::cout << "Скорость лута увеличена на 10%.\n";
-                break;
-            } else { command_not_exist(); }
-        } else if (gif_level == 2) {
-            std::cout << "[1]: +10% к урону.\n"
-                      << "[2]: +200 XP сразу.\n"
-                      << "[3]: +10 к максимальному здоровью.\n";
-            std::cin >> choise_gif;
-            if (choise_gif == 1) {
-                a.player_damage_multiplier += 0.1;
-                std::cout << "Урон увеличен на 10%.\n";
-                break;
-            } else if (choise_gif == 2) {
-                add_xp(200, p, a, w);
-                break;
-            } else if (choise_gif == 3) {
-                a.player_max_hp += 10;
-                p.player_hp += 10;
-                if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
-                std::cout << "Максимальное здоровье увеличено до " << a.player_max_hp << ".\n";
-                break;
-            } else { command_not_exist(); }
-        } else if (gif_level == 3) {
-            std::cout << "[1]: +2400 монет к балансу.\n"
-                      << "[2]: +1% к шансу мгновенного убийства.\n"
-                      << "[3]: +5% к поглощению урона.\n";
-            std::cin >> choise_gif;
-            if (choise_gif == 1) {
-                p.player_money += 2400;
-                std::cout << "Теперь у вас " << p.player_money << " монет.\n";
-                break;
-            } else if (choise_gif == 2) {
-                w.guaranteed_kill_chance += 0.01;
-                std::cout << "Шанс мгновенного убийства увеличен на 1%.\n";
-                break;
-            } else if (choise_gif == 3) {
-                a.armor_absorption += 0.05;
-                if (a.armor_absorption > 0.9) a.armor_absorption = 0.9;
-                std::cout << "Поглощение урона увеличено на 5%.\n";
-                break;
-            } else { command_not_exist(); }
+    struct Perk {
+        std::string description;
+        int effect_type;
+        double value;
+    };
+
+    Perk level_gifts[3][3] = {
+        // УРОВЕНЬ 1 (индекс 0)
+        {
+            {"[1]: +20 к максимальному здоровью.", 1, 20},
+            {"[2]: +1200 монет к балансу.", 2, 1200},
+            {"[3]: +10% к скорости лута.", 3, 0.1}
+        },
+        // УРОВЕНЬ 2 (индекс 1)
+        {
+            {"[1]: +10% к урону.", 4, 0.1},
+            {"[2]: +200 XP сразу.", 5, 200},
+            {"[3]: +10 к максимальному здоровью.", 1, 10}
+        },
+        // УРОВЕНЬ 3 (индекс 2)
+        {
+            {"[1]: +2400 монет к балансу.", 2, 2400},
+            {"[2]: +1% к шансу мгновенного убийства.", 6, 0.01},
+            {"[3]: +5% к поглощению урона.", 7, 0.05}
+        }
+    };
+
+    int lvl_idx = gif_level - 1;
+
+while (true) {
+    for (int i = 0; i < 3; i++) {
+        std::cout << level_gifts[lvl_idx][i].description << "\n";
+    }
+
+    std::cin >> choise_gif;
+    
+    if (choise_gif >= 1 && choise_gif <= 3) {
+        int perk_idx = choise_gif - 1;
+        
+        int type = level_gifts[lvl_idx][perk_idx].effect_type;
+        double val = level_gifts[lvl_idx][perk_idx].value;
+
+        if (type == 1) { // Плюс к ХП
+            a.player_max_hp += val;
+            p.player_hp += val;
+            if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
+            std::cout << "Максимальное здоровье увеличено.\n";
+        } 
+        else if (type == 2) { // Монеты
+            p.player_money += val;
+            std::cout << "Баланс пополнен.\n";
+        } 
+        else if (type == 3) { // Скор. лута
+            a.loot_speed_multiplier += val;
+        } 
+        else if (type == 4) { // Урон
+            a.player_damage_multiplier += val;
+        } 
+        else if (type == 5) { // Опыт
+            add_xp(val, p, a, w);
+        } 
+        else if (type == 6) { // Ваншот
+            w.guaranteed_kill_chance += val;
+        } 
+        else if (type == 7) { // Поглощение
+            a.armor_absorption += val;
+            if (a.armor_absorption > 0.9) a.armor_absorption = 0.9;
+        }
+        break;
+
+        } else {
+            command_not_exist();
         }
     }
 
@@ -395,11 +414,24 @@ void dead(Player& p, Armor& a, Weapon& w, Zombie& z) {
 }
 
 int player_attack_body(Player& p, Armor& a, Weapon& w, Zombie& z) {
+    if (w.cartridges <= 0) {
+        std::cout << "Осечка! Нет патронов.\n";
+        return 0;
+    }
+    if (w.endurance <= 0) {
+        std::cout << "Оружие сломано! Вы не можете стрелять.\n";
+        return 0;
+    }
+
+    --w.cartridges;
+    --w.endurance;
+
     int idx = body_choice(generator);
     double mult = body_multipliers[idx];
     int dmg = static_cast<int>(p.player_damage * mult * a.player_damage_multiplier * w.weapon_damage_mult);
     z.zombie_hp -= dmg;
-    std::cout << "Вы попали в " << body_parts[idx] << " и нанесли " << dmg << " урона!\n";
+    std::cout << "Вы попали в " << body_parts[idx] << " и нанесли " << dmg << " урона! (патронов: " 
+              << w.cartridges << "/" << w.max_cartridges << ")\n";
     return dmg;
 }
 
@@ -639,7 +671,7 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
 }
 
 void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
-    std::cout << "\n=== Мастерская ===\n"
+    std::cout << "\n=== МАСТЕРСКАЯ ===\n"
               << "[1]: Экипировка\n"
               << "[2]: Оружие\n"
               << "[3]: Верстак\n"
@@ -648,115 +680,141 @@ void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cin >> choise_workshop;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
+    // ----------- Экипировка -----------
     if (choise_workshop == 1) {
-        std::cout << "\nЭкипировка:\n"
-                  << "[1] Тяжёлая броня. Поглощение 75%. Здоровье 120. Урон 70%. Скорость лута 50%\n"
-                  << "[2] Лёгкая броня. Поглощение -25%. Здоровье 100. Урон 110%. Скорость лута 500%\n"
-                  << "[3] Средняя броня. Поглощение 10%. Здоровье 110. Урон 110%. Скорость лута 110%\n"
-                  << "[4] Начальная броня. Поглощение -5%. Здоровье 100. Урон 100%. Скорость лута 80%\n";
+        struct ArmorInfo {
+            std::string name;
+            double absorption;
+            double damage_multiplier;
+            double loot_speed;
+            int max_hp;
+        };
 
-        int workshop_equipment;
-        while (true) {
-            std::cin >> workshop_equipment;
-            if (workshop_equipment >= 1 && workshop_equipment <= 4) break;
-            std::cout << "Неверный выбор. Введите число от 1 до 4: ";
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        ArmorInfo armors[] = {
+            {"Тяжёлая броня", 0.75, 0.7, 0.5, 120},
+            {"Лёгкая броня", -0.25, 1.1, 5.0, 100},
+            {"Средняя броня", 0.10, 1.1, 1.1, 110},
+            {"Начальная броня", -0.05, 1.0, 0.8, 100}
+        };
+
+        std::cout << "\n--- ЭКИПИРОВКА ---\n";
+        for (int i = 0; i < 4; ++i) {
+            std::cout << "[" << i+1 << "] " << armors[i].name
+                      << " | Поглощение: " << static_cast<int>(armors[i].absorption * 100) << "%"
+                      << " | Урон: x" << armors[i].damage_multiplier
+                      << " | Скорость лута: x" << armors[i].loot_speed
+                      << " | Макс. HP: " << armors[i].max_hp << "\n";
         }
 
-        a.armor_absorption = 0.0;
-        a.player_damage_multiplier = 1.0;
-        a.loot_speed_multiplier = 1.0;
-        a.player_max_hp = 100;
+        int choise_armor;
+        std::cout << "Что хотите надеть? (1-4): ";
+        std::cin >> choise_armor;
 
-        switch (workshop_equipment) {
-            case 1:
-                std::cout << "Вы надели тяжёлую броню.\n";
-                a.armor_absorption = 0.75;
-                a.player_damage_multiplier = 0.7;
-                a.loot_speed_multiplier = 0.5;
-                a.player_max_hp = 120;
-                break;
-            case 2:
-                std::cout << "Вы надели лёгкую броню.\n";
-                a.armor_absorption = -0.25;
-                a.player_damage_multiplier = 1.1;
-                a.loot_speed_multiplier = 5.0;
-                a.player_max_hp = 100;
-                break;
-            case 3:
-                std::cout << "Вы надели среднюю броню.\n";
-                a.armor_absorption = 0.10;
-                a.player_damage_multiplier = 1.1;
-                a.loot_speed_multiplier = 1.1;
-                a.player_max_hp = 110;
-                break;
-            case 4:
-                std::cout << "Вы надели начальную броню.\n";
-                a.armor_absorption = -0.05;
-                a.player_damage_multiplier = 1.0;
-                a.loot_speed_multiplier = 0.8;
-                a.player_max_hp = 100;
-                break;
+        if (choise_armor < 1 || choise_armor > 4) {
+            std::cout << "Неверный выбор.\n";
+            return;
         }
+
+        int idx = choise_armor - 1;
+        a.armor_absorption = armors[idx].absorption;
+        a.player_damage_multiplier = armors[idx].damage_multiplier;
+        a.loot_speed_multiplier = armors[idx].loot_speed;
+        a.player_max_hp = armors[idx].max_hp;
+        a.armor_name = armors[idx].name;
 
         if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
+
+        std::cout << "Вы успешно экипировали " << armors[idx].name << "!\n";
     }
+
+    // ----------- Оружие -----------
     else if (choise_workshop == 2) {
-        std::cout << "\nОружие:\n"
-                  << "[1] AK-47. Урон 160%. +0% попадание. Скорость лута +10%. Стоимость: 5400 монет.\n"
-                  << "    Особенность: можно ставить обвесы.\n"
-                  << "[2] AWP. Урон 250%. +50% попадание. Скорость лута -50%. Стоимость: 8400 монет.\n"
-                  << "    Особенность: шанс 5% убить зомби мгновенно.\n"
-                  << "[3] LR-300. Урон 140%. +5% попадание. Скорость лута +0%. Стоимость: 3600 монет.\n"
-                  << "    Особенностей нет.\n"
-                  << "[4] MP-5. Урон 100%. +5% попадание. Скорость лута +15%. Стоимость: 5400 монет.\n"
-                  << "    Особенность: шанс 20% сделать двойной выстрел.\n";
+        struct WeaponInfo {
+            std::string name;
+            int price;
+            double dmg_mult;
+            int acc_bonus;
+            double loot_mult;
+            double kill_chance;
+            double double_shot;
+        };
 
-        int weapon_choice;
-        while (true) {
-            std::cin >> weapon_choice;
-            if (weapon_choice >= 1 && weapon_choice <= 4) break;
-            std::cout << "Неверный выбор. Введите от 1 до 4: ";
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        WeaponInfo shop[] = {
+            {"AK-47", 5400, 1.6,  0, 1.1,  0.0, 0.0},
+            {"AWP",   8400, 2.5, 50, 0.5,  0.05, 0.0},
+            {"LR-300",3600, 1.4,  5, 1.0,  0.0, 0.0},
+            {"MP-5",  5400, 1.0,  5, 1.15, 0.0, 0.2}
+        };
+
+        std::cout << "\n--- МАГАЗИН ОРУЖИЯ ---\n";
+        for (int i = 0; i < 4; ++i) {
+            std::cout << "[" << i+1 << "] " << shop[i].name
+                      << " | Цена: " << shop[i].price
+                      << " | Урон: x" << shop[i].dmg_mult
+                      << " | Меткость: +" << shop[i].acc_bonus << "%"
+                      << " | Лут: x" << shop[i].loot_mult
+                      << " | Ваншот: " << static_cast<int>(shop[i].kill_chance * 100) << "%"
+                      << " | Двойной: " << static_cast<int>(shop[i].double_shot * 100) << "%\n";
         }
 
-        int cost = 0;
-        double dmg_mult = 1.0;
-        int acc_bonus = 0;
-        double loot_mult = 1.0;
-        double double_shot = 0.0;
-        double kill_chance = 0.0;
-
-        switch (weapon_choice) {
-            case 1: cost = 5400; dmg_mult = 1.6; acc_bonus = 0; loot_mult = 1.1; break;
-            case 2: cost = 8400; dmg_mult = 2.5; acc_bonus = 50; loot_mult = 0.5; kill_chance = 0.05; break;
-            case 3: cost = 3600; dmg_mult = 1.4; acc_bonus = 5; loot_mult = 1.0; break;
-            case 4: cost = 5400; dmg_mult = 1.0; acc_bonus = 5; loot_mult = 1.15; double_shot = 0.2; break;
+        int choice_weapon;
+        std::cout << "Что хотите купить? (1-4): ";
+        std::cin >> choice_weapon;
+        if (choice_weapon < 1 || choice_weapon > 4) {
+            std::cout << "Неверный выбор.\n";
+            return;
         }
+        int idx = choice_weapon - 1;
 
-        if (p.player_money < cost) {
-            std::cout << "Недостаточно монет! Нужно " << cost << ", у вас " << p.player_money << ".\n";
+        if (p.player_money < shop[idx].price) {
+            std::cout << "Недостаточно монет! Нужно " << shop[idx].price
+                      << ", у вас " << p.player_money << ".\n";
         } else {
-            p.player_money -= cost;
-            w.current_weapon = weapon_choice;
-            w.weapon_damage_mult = dmg_mult;
-            w.accuracy_bonus = acc_bonus;
-            w.weapon_loot_speed = loot_mult;
-            w.double_shot_chance = double_shot;
-            w.guaranteed_kill_chance = kill_chance;
+            p.player_money -= shop[idx].price;
+            w.current_weapon = choice_weapon;
+            w.weapon_damage_mult = shop[idx].dmg_mult;
+            w.accuracy_bonus = shop[idx].acc_bonus;
+            w.weapon_loot_speed = shop[idx].loot_mult;
+            w.guaranteed_kill_chance = shop[idx].kill_chance;
+            w.double_shot_chance = shop[idx].double_shot;
             w.silencer_dodge_chance = 0.0;
+            // w.name = shop[idx].name; почему то выдает ошибку error: 'struct Weapon' has no member named 'name'
 
-            std::cout << "Вы купили и экипировали оружие!\n";
+            std::cout << "Вы купили и экипировали " << shop[idx].name << "!\n";
         }
     }
-    else if (choise_workshop == 3) {
-        std::cout << "Верстак пока в разработке.\n";
+
+    // ---------- Верстак ----------
+else if (choise_workshop == 3) {
+    std::cout << "\nПочинка оружия (250 монет) и пополнение патронов (10 монета за патрон).\n";
+    std::cout << "Текущая прочность: " << w.endurance << "/100\n";
+    std::cout << "Патроны: " << w.cartridges << "/" << w.max_cartridges << "\n";
+    // починка
+    if (p.player_money >= 250 && w.endurance < 100) {
+        p.player_money -= 250;
+        w.endurance = 100;
+        std::cout << "Оружие полностью отремонтировано.\n";
     }
+    // пополнение патронов
+    int needed = w.max_cartridges - w.cartridges;
+    if (needed > 0) {
+        int cost = needed * 10;  // 10 монета за патрон
+        if (p.player_money >= cost) {
+            p.player_money -= cost;
+            w.cartridges = w.max_cartridges;
+            std::cout << "Патроны пополнены до " << w.max_cartridges << ".\n";
+        } else {
+            std::cout << "Недостаточно денег для полной закупки патронов.\n";
+        }
+    }
+}
+
+    // ---------- Обвесы ----------
     else if (choise_workshop == 4) {
         std::cout << "Обвесы в разработке.\n";
     }
+
+    // ---------- Неверный выбор ----------
     else {
         std::cout << "Неверный выбор.\n";
     }

@@ -9,7 +9,7 @@ struct Player;
 struct Armor;
 
 struct Weapon {
-    std::string weapon_name;
+    std::string name = "Без оружия";
     int current_weapon = 0;
     double weapon_damage_mult = 1.0;
     int accuracy_bonus = 0;
@@ -17,6 +17,10 @@ struct Weapon {
     double double_shot_chance = 0.0;
     double guaranteed_kill_chance = 0.0;
     double silencer_dodge_chance = 0.0;
+
+    int cartridges = 30;    // текущие патроны
+    int max_cartridges = 30; // максимальный боезапас
+    int endurance = 100;     // прочность
 };
 
 struct Armor {
