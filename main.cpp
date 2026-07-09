@@ -16,9 +16,9 @@
 // -------------------- Глобальные генераторы --------------------
 std::mt19937 generator(std::random_device{}());
 
-std::uniform_int_distribution<int> loot_location_one(0, 20);
-std::uniform_int_distribution<int> loot_location_two(10, 100);
-std::uniform_int_distribution<int> loot_location_three(100, 1000);
+std::uniform_int_distribution<int> loot_location_one(0, 2);
+std::uniform_int_distribution<int> item_loot_location_two(0, 3);
+std::uniform_int_distribution<int> loot_location_three(0, 2);
 
 std::uniform_int_distribution<int> zombieDmg(10, 40);
 std::uniform_int_distribution<int> zombieSpeedDmg(5, 30);
@@ -37,6 +37,25 @@ std::uniform_int_distribution<int> level_gif(1000, 2000);
 
 // -------------------- Глобальные переменные --------------------
 int choise_damage = 1;
+
+LootItem drop_table_location_one[3] = {
+    {"Металлолом", 10},
+    {"Батарейка", 25},
+    {"Тряпка", 5}
+};
+
+LootItem drop_table_location_two[4] = {
+    {"Аптечка", 50},
+    {"Патроны", 40},
+    {"Деталь оружия", 100},
+    {"Золотая цепочка", 150}
+};
+
+LootItem drop_table_location_three[3] = {
+    {"Кристалл", 300},
+    {"Редкий артефакт", 800},
+    {"Схема обвеса", 1200}
+};
 
 // -------------------- Константы боя --------------------
 const std::string body_parts[3] = {"Голову", "Тело", "Конечность"};
@@ -255,7 +274,7 @@ void load_game(Player& p, Armor& a, Weapon& w, Zombie& z) {
 
 void add_xp(int amount, Player& p, Armor& a, Weapon& w) {
     p.player_xp += amount;
-    std::cout << " (+" << amount << " XP)";
+    std::cout << " (+" << amount << " XP)\n";
     while (p.player_xp >= p.xp_for_next_level()) {
         p.player_xp -= p.xp_for_next_level();
         p.player_level++;
@@ -407,10 +426,25 @@ void hunting(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
     }
 }
 
+void add_to_backpack(Player& p, std::string item_name, int price) {
+    // Проверяем, есть ли уже такой предмет в рюкзаке
+    for (int i = 0; i < p.backpack.size(); i++) {
+        if (p.backpack[i].name == item_name) {
+            p.backpack[i].count++; // Нашли! Увеличиваем количество
+            return;
+        }
+    }
+    // Если цикл кончился и мы ничего не нашли, значит предмет новый!
+    InventoryItem new_item = {item_name, 1, price};
+    p.backpack.push_back(new_item); // Добавляем новый предмет в конец вектора
+}
+
+
 void dead(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cout << "Вы погибли... Игра окончена.\n";
     std::cout << "Вы потеряли " << p.player_money << " монет.\n";
     p.player_money = 0;
+    save_game(p, a, w, z);
 }
 
 int player_attack_body(Player& p, Armor& a, Weapon& w, Zombie& z) {
@@ -582,27 +616,22 @@ void stealth(Player& p, Armor& a, Weapon& w, Zombie& z) {
 
 void number_hunting_one(Player& p, Armor& a, Weapon& w, Zombie& z) {
     const int BOX = 5;
-    int earned = 0;
-    bool lucky = loot_location_one(generator) > 10;
-    if (lucky) std::cout << "Повезло! Хороший лут.\n";
-    else std::cout << "Плохой лут.\n";
-    int minL = lucky ? 10 : 0, maxL = lucky ? 20 : 10;
     for (int i = 0; i < BOX; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(3000 / (a.loot_speed_multiplier * w.weapon_loot_speed))));
-        std::uniform_int_distribution<int> loot(minL, maxL);
-        int coins = loot(generator);
+        int item_idx = loot_location_one(generator);
         int xp_gain = xp_box(generator);
-        std::cout << "Ящик " << i+1 << ": " << coins << " монет, +" << xp_gain << " XP\n";
-        earned += coins;
+        std::cout << "Ящик " << i+1 << ": найдено: " << drop_table_location_one[item_idx].name 
+                  << " (цена: " << drop_table_location_one[item_idx].sell_price << ")"
+                  << " +[" << xp_gain << "] опыта!\n";
+        
         add_xp(xp_gain, p, a, w);
+        add_to_backpack(p, drop_table_location_one[item_idx].name, drop_table_location_one[item_idx].sell_price);
     }
-    p.player_money += earned;
-    std::cout << "Всего монет: " << earned << "\n";
+    p.show_backpack();
 }
 
 void number_hunting_two(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
     const int BOX = 5;
-    int earned = 0;
     std::cout << "Прорываетесь к лучшим ящикам!\n";
     std::uniform_int_distribution<int> encounter(1, 5);
     for (int i = 0; i < BOX; ++i) {
@@ -618,19 +647,20 @@ void number_hunting_two(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& f
             if (p.player_hp <= 0) return;
             if (currentZ->zombie_hp > 0) { std::cout << "Зомби помешал обыскать!\n"; continue; }
         }
-        int coins = loot_location_two(generator);
+        int item_idx = item_loot_location_two(generator);
         int xp_gain = xp_box(generator);
-        std::cout << "Ящик " << i+1 << ": " << coins << " монет, +" << xp_gain << " XP\n";
-        earned += coins;
+        std::cout << "Ящик " << i+1 << ": найдено: " << drop_table_location_two[item_idx].name 
+                  << " (цена: " << drop_table_location_two[item_idx].sell_price << ")"
+                  << " +[" << xp_gain << "] опыта!\n";
+
         add_xp(xp_gain, p, a, w);
-    }
-    p.player_money += earned;
-    std::cout << "Всего монет: " << earned << "\n";
+        add_to_backpack(p, drop_table_location_two[item_idx].name, drop_table_location_two[item_idx].sell_price);
+        }
+        p.show_backpack();
 }
 
 void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
     const int BOX = 5;
-    int earned = 0;
     std::uniform_int_distribution<int> enc(1, 5);
     std::uniform_int_distribution<int> event(1, 11);
     int ev = event(generator);
@@ -643,12 +673,15 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
                 if (p.player_hp <= 0) return;
                 if (z.zombie_hp > 0) { std::cout << "Зомби помешал обыскать!\n"; continue; }
             }
-            int coins = loot_location_three(generator);
+            int item_idx = loot_location_three(generator);
             int xp_gain = xp_box(generator);
-            std::cout << "Ящик " << i+1 << ": " << coins << " монет, +" << xp_gain << " XP\n";
-            earned += coins;
+            std::cout << "Ящик " << i+1 << ": найдено: " << drop_table_location_three[item_idx].name 
+                      << " (цена: " << drop_table_location_three[item_idx].sell_price << ")"
+                      << " +[" << xp_gain << "] опыта!\n";
             add_xp(xp_gain, p, a, w);
+            add_to_backpack(p, drop_table_location_three[item_idx].name, drop_table_location_three[item_idx].sell_price);
         }
+        p.show_backpack();
     } else {
         std::cout << "Зомби очень активны, но лут лучше!\n";
         for (int i = 0; i < BOX; ++i) {
@@ -659,15 +692,17 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
                 if (p.player_hp <= 0) return;
                 if (z.zombie_hp > 0) { std::cout << "Зомби помешал обыскать!\n"; continue; }
             }
-            int coins = static_cast<int>(loot_location_three(generator) * 1.5);
+            int item_idx = loot_location_three(generator);
             int xp_gain = xp_box(generator);
-            std::cout << "Ящик " << i+1 << ": " << coins << " монет (бонус), +" << xp_gain << " XP\n";
-            earned += coins;
+            int price = drop_table_location_three[item_idx].sell_price * 2;
+            std::cout << "Ящик " << i+1 << ": найдено: " << drop_table_location_three[item_idx].name 
+                      << " (цена: " << price << ")"
+                      << " +[" << xp_gain << "] опыта!\n";
             add_xp(xp_gain, p, a, w);
+            add_to_backpack(p, drop_table_location_three[item_idx].name, price);
         }
     }
-    p.player_money += earned;
-    std::cout << "Всего монет: " << earned << "\n";
+    p.show_backpack();
 }
 
 void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
@@ -778,7 +813,7 @@ void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
             w.guaranteed_kill_chance = shop[idx].kill_chance;
             w.double_shot_chance = shop[idx].double_shot;
             w.silencer_dodge_chance = 0.0;
-            // w.name = shop[idx].name; почему то выдает ошибку error: 'struct Weapon' has no member named 'name'
+            w.name = shop[idx].name;
 
             std::cout << "Вы купили и экипировали " << shop[idx].name << "!\n";
         }
@@ -826,7 +861,7 @@ void menu(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
     while (true) {
         std::cout << "Баланс: " << p.player_money << " монет | Здоровье: " << p.player_hp << "/" << a.player_max_hp
                   << " | Уровень: " << p.player_level << " (XP: " << p.player_xp << "/" << p.xp_for_next_level() << ")\n";
-        std::cout << "1 - Охота\n2 - Больница\n3 - Мастерская\n4 - Сохранить\n5 - Статистика\n6 - выход\n";
+        std::cout << "1 - Охота\n2 - Больница\n3 - Мастерская\n4 - Сохранить\n5 - Статистика\n6 - Скупщик\n7 - Выход\n";
         std::cin >> choice;
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         if (choice == 1) { hunting(p, a, w, z, fz); std::cout << "\nВы вернулись на базу.\n"; }
@@ -834,7 +869,8 @@ void menu(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
         else if (choice == 3) workshop(p, a, w, z);
         else if (choice == 4) save_game(p, a, w, z);
         else if (choice == 5) show_status(p, a, w);
-        else if (choice == 6) { quitGame(p, a, w, z); break; }
+        else if (choice == 6) p.sell_all_loot();
+        else if (choice == 7) { quitGame(p, a, w, z); break; }
         else std::cout << "Неверная команда!\n" << std::endl;
     }
 }
