@@ -13,7 +13,6 @@
 
 #include "struct.h"
 
-// -------------------- Глобальные генераторы --------------------
 std::mt19937 generator(std::random_device{}());
 
 std::uniform_int_distribution<int> loot_location_one(0, 2);
@@ -35,7 +34,6 @@ std::uniform_int_distribution<int> xp_box(1, 10);
 std::uniform_int_distribution<int> xp_kill(20, 50);
 std::uniform_int_distribution<int> level_gif(1000, 2000);
 
-// -------------------- Глобальные переменные --------------------
 int choise_damage = 1;
 
 LootItem drop_table_location_one[3] = {
@@ -57,12 +55,10 @@ LootItem drop_table_location_three[3] = {
     {"Схема обвеса", 1200}
 };
 
-// -------------------- Константы боя --------------------
 const std::string body_parts[3] = {"Голову", "Тело", "Конечность"};
 const double body_multipliers[3] = {2.0, 1.0, 0.5};
 std::uniform_int_distribution<int> body_choice(0, 2);
 
-// -------------------- Прототипы --------------------
 void quitGame(Player& p, Armor& a, Weapon& w, Zombie& z);
 void hospital(Player& p, Armor& a, Weapon& w, Zombie& z);
 void hunting(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz);
@@ -90,23 +86,20 @@ void load_game(Player& p, Armor& a, Weapon& w, Zombie& z);
 void show_status(const Player& p, const Armor& a, const Weapon& w);
 void hello(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz);
 
-// -------------------- Реализации методов зомби --------------------
 void Zombie::attack(Player& p, Armor& a) {
     int raw = zombieDmg(generator);
     int dmg = static_cast<int>(raw * (1.0 - a.armor_absorption));
-    p.player_hp -= dmg;
+    p.take_damage(dmg);
     std::cout << "Зомби наносит " << dmg << " урона.\n";
 }
 
 void FastZombie::attack(Player& p, Armor& a) {
     int raw = zombieSpeedDmg(generator);
     int dmg = static_cast<int>(raw * (1.0 - a.armor_absorption));
-    int total_dmg = dmg * speed;   // двойной урон за счёт скорости
-    p.player_hp -= total_dmg;
+    int total_dmg = dmg * speed;
+    p.take_damage(total_dmg);
     std::cout << "Быстрый зомби наносит двойной урон: " << total_dmg << "\n";
 }
-
-// -------------------- Остальные функции --------------------
 
 void command_not_exist() {
     std::cout << "Такой команды не существует!\n";
@@ -142,12 +135,12 @@ void show_status(const Player& p, const Armor& a, const Weapon& w) {
     std::cout << "│           СТАТУС  ГЕРОЯ              │\n";
     std::cout << "├──────────────────────────────────────┤\n";
 
-    std::cout << "│ Имя:             " << p.player_name   << "\n";
-    std::cout << "│ Здоровье:        " << p.player_hp << "/" << a.player_max_hp << "\n";
-    std::cout << "│ Монеты:          " << p.player_money << "\n";
-    std::cout << "│ Уровень:         " << p.player_level
-              << "  (XP " << p.player_xp << "/" << p.xp_for_next_level() << ")\n";
-    std::cout << "│ Урон:            " << p.player_damage << "\n";
+    std::cout << "│ Имя:             " << p.get_name()   << "\n";
+    std::cout << "│ Здоровье:        " << p.get_hp() << "/" << a.player_max_hp << "\n";
+    std::cout << "│ Монеты:          " << p.get_money() << "\n";
+    std::cout << "│ Уровень:         " << p.get_level()
+              << "  (XP " << p.get_xp() << "/" << p.xp_for_next_level() << ")\n";
+    std::cout << "│ Урон:            " << p.get_damage() << "\n";
     std::cout << "├──────────────────────────────────────┤\n";
 
     std::cout << "│ Броня:\n";
@@ -174,11 +167,11 @@ void show_status(const Player& p, const Armor& a, const Weapon& w) {
 void save_game(const Player& p, const Armor& a, const Weapon& w, Zombie& z) {
     std::ofstream file("save.txt");
     if (file.is_open()) {
-        file << "Имя: " << p.player_name << "\n"
-             << "Здоровье: " << p.player_hp << "\n"
-             << "Деньги: " << p.player_money << "\n"
+        file << "Имя: " << p.get_name() << "\n"
+             << "Здоровье: " << p.get_hp() << "\n"
+             << "Деньги: " << p.get_money() << "\n"
              << "Макс_здоровье: " << a.player_max_hp << "\n"
-             << "Урон: " << p.player_damage << "\n"
+             << "Урон: " << p.get_damage() << "\n"
              << "Патроны: " << w.cartridges << "\n"
              << "Прочность оружия: " << w.endurance << "\n"
              << "Поглощение: " << a.armor_absorption << "\n"
@@ -192,9 +185,9 @@ void save_game(const Player& p, const Armor& a, const Weapon& w, Zombie& z) {
              << "Мгновенное_убийство: " << w.guaranteed_kill_chance << "\n"
              << "Шанс_уклонения: " << w.silencer_dodge_chance << "\n"
              << "Множитель_зомби: " << choise_damage << "\n"
-             << "Уровень: " << p.player_level << "\n"
-             << "Опыт: " << p.player_xp << "\n"
-             << "Регистрация: " << p.player_reg << "\n";
+             << "Уровень: " << p.get_level() << "\n"
+             << "Опыт: " << p.get_xp() << "\n"
+             << "Регистрация: " << p.get_reg() << "\n";
         file.close();
         std::cout << "Прогресс сохранён в save.txt\n";
     } else {
@@ -224,15 +217,15 @@ void load_game(Player& p, Armor& a, Weapon& w, Zombie& z) {
             value_str = "";
 
         if (key == "Имя")
-            p.player_name = value_str;
+            p.set_name(value_str);
         else if (key == "Здоровье")
-            p.player_hp = std::stoi(value_str);
+            p.set_hp(std::stoi(value_str));
         else if (key == "Деньги")
-            p.player_money = std::stoi(value_str);
+            p.set_money(std::stoi(value_str));
         else if (key == "Макс_здоровье")
             a.player_max_hp = std::stoi(value_str);
         else if (key == "Урон")
-            p.player_damage = std::stoi(value_str);
+            p.set_damage(std::stoi(value_str));
         else if (key == "Патроны")
             w.cartridges = std::stoi(value_str);
         else if (key == "Прочность оружия")
@@ -260,25 +253,25 @@ void load_game(Player& p, Armor& a, Weapon& w, Zombie& z) {
         else if (key == "Множитель_зомби")
             choise_damage = std::stoi(value_str);
         else if (key == "Уровень")
-            p.player_level = std::stoi(value_str);
+            p.set_level(std::stoi(value_str));
         else if (key == "Опыт")
-            p.player_xp = std::stoi(value_str);
+            p.set_xp(std::stoi(value_str));
         else if (key == "Регистрация")
-            p.player_reg = std::stoi(value_str);
+            p.set_reg(std::stoi(value_str));
     }
     file.close();
 
     std::cout << "Сохранение загружено. Добро пожаловать обратно!\n";
-    if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
+    if (p.get_hp() > a.player_max_hp) p.set_hp(a.player_max_hp);
 }
 
 void add_xp(int amount, Player& p, Armor& a, Weapon& w) {
-    p.player_xp += amount;
+    p.xp_up(amount);
     std::cout << " (+" << amount << " XP)\n";
-    while (p.player_xp >= p.xp_for_next_level()) {
-        p.player_xp -= p.xp_for_next_level();
-        p.player_level++;
-        std::cout << "\nПоздравляем! Вы достигли уровня " << p.player_level << "!\n";
+    while (p.get_xp() >= p.xp_for_next_level()) {
+        p.xp_nup(p.xp_for_next_level());
+        p.add_level(1);
+        std::cout << "\nПоздравляем! Вы достигли уровня " << p.get_level() << "!\n";
         level_up(p, a, w);
     }
 }
@@ -286,7 +279,7 @@ void add_xp(int amount, Player& p, Armor& a, Weapon& w) {
 void level_up(Player& p, Armor& a, Weapon& w) {
     int gif_level = random_gif(generator);
     int choise_gif;
-    std::cout << "На " << p.player_level << " уровне вы можете выбрать улучшение:\n";
+    std::cout << "На " << p.get_level() << " уровне вы можете выбрать улучшение:\n";
 
     struct Perk {
         std::string description;
@@ -295,19 +288,16 @@ void level_up(Player& p, Armor& a, Weapon& w) {
     };
 
     Perk level_gifts[3][3] = {
-        // УРОВЕНЬ 1 (индекс 0)
         {
             {"[1]: +20 к максимальному здоровью.", 1, 20},
             {"[2]: +1200 монет к балансу.", 2, 1200},
             {"[3]: +10% к скорости лута.", 3, 0.1}
         },
-        // УРОВЕНЬ 2 (индекс 1)
         {
             {"[1]: +10% к урону.", 4, 0.1},
             {"[2]: +200 XP сразу.", 5, 200},
             {"[3]: +10 к максимальному здоровью.", 1, 10}
         },
-        // УРОВЕНЬ 3 (индекс 2)
         {
             {"[1]: +2400 монет к балансу.", 2, 2400},
             {"[2]: +1% к шансу мгновенного убийства.", 6, 0.01},
@@ -317,60 +307,59 @@ void level_up(Player& p, Armor& a, Weapon& w) {
 
     int lvl_idx = gif_level - 1;
 
-while (true) {
-    for (int i = 0; i < 3; i++) {
-        std::cout << level_gifts[lvl_idx][i].description << "\n";
-    }
-
-    std::cin >> choise_gif;
-    
-    if (choise_gif >= 1 && choise_gif <= 3) {
-        int perk_idx = choise_gif - 1;
-        
-        int type = level_gifts[lvl_idx][perk_idx].effect_type;
-        double val = level_gifts[lvl_idx][perk_idx].value;
-
-        if (type == 1) { // Плюс к ХП
-            a.player_max_hp += val;
-            p.player_hp += val;
-            if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
-            std::cout << "Максимальное здоровье увеличено.\n";
-        } 
-        else if (type == 2) { // Монеты
-            p.player_money += val;
-            std::cout << "Баланс пополнен.\n";
-        } 
-        else if (type == 3) { // Скор. лута
-            a.loot_speed_multiplier += val;
-        } 
-        else if (type == 4) { // Урон
-            a.player_damage_multiplier += val;
-        } 
-        else if (type == 5) { // Опыт
-            add_xp(val, p, a, w);
-        } 
-        else if (type == 6) { // Ваншот
-            w.guaranteed_kill_chance += val;
-        } 
-        else if (type == 7) { // Поглощение
-            a.armor_absorption += val;
-            if (a.armor_absorption > 0.9) a.armor_absorption = 0.9;
+    while (true) {
+        for (int i = 0; i < 3; i++) {
+            std::cout << level_gifts[lvl_idx][i].description << "\n";
         }
-        break;
 
+        std::cin >> choise_gif;
+        
+        if (choise_gif >= 1 && choise_gif <= 3) {
+            int perk_idx = choise_gif - 1;
+            
+            int type = level_gifts[lvl_idx][perk_idx].effect_type;
+            double val = level_gifts[lvl_idx][perk_idx].value;
+
+            if (type == 1) {
+                a.player_max_hp += val;
+                p.set_hp(a.player_max_hp);
+                if (p.get_hp() > a.player_max_hp) p.set_hp(a.player_max_hp);
+                std::cout << "Максимальное здоровье увеличено.\n";
+            } 
+            else if (type == 2) {
+                p.add_money(val);
+                std::cout << "Баланс пополнен.\n";
+            } 
+            else if (type == 3) {
+                a.loot_speed_multiplier += val;
+            } 
+            else if (type == 4) {
+                a.player_damage_multiplier += val;
+            } 
+            else if (type == 5) {
+                add_xp(val, p, a, w);
+            } 
+            else if (type == 6) {
+                w.guaranteed_kill_chance += val;
+            } 
+            else if (type == 7) {
+                a.armor_absorption += val;
+                if (a.armor_absorption > 0.9) a.armor_absorption = 0.9;
+            }
+            break;
         } else {
             command_not_exist();
         }
     }
 
     int bonus = level_gif(generator);
-    p.player_money += bonus;
+    p.add_money(bonus);
     std::cout << "Бонусом вам зачислили " << bonus << " монет" << std::endl;
 }
 
 void hospital(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cout << "\nВы в больнице\n";
-    std::cout << "(Баланс: " << p.player_money << ", здоровье: " << p.player_hp << ")\n";
+    std::cout << "(Баланс: " << p.get_money() << ", здоровье: " << p.get_hp() << ")\n";
     std::cout << "1 хп = 2 монеты\n";
     int hospital_choise;
     while (true) {
@@ -385,7 +374,7 @@ void hospital(Player& p, Armor& a, Weapon& w, Zombie& z) {
             continue;
         }
         int cost = hospital_choise * 2;
-        if (p.player_money < cost) {
+        if (p.get_money() < cost) {
             std::cout << "Недостаточно монет!\n";
             continue;
         }
@@ -393,10 +382,9 @@ void hospital(Player& p, Armor& a, Weapon& w, Zombie& z) {
         std::string ans;
         std::cin >> ans;
         if (ans == "да") {
-            p.player_money -= cost;
-            p.player_hp += hospital_choise;
-            if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
-            std::cout << "Теперь у вас " << p.player_hp << " здоровья.\n";
+            p.reduce_money(cost);
+            p.heal_player(hospital_choise, a.player_max_hp);
+            std::cout << "Теперь у вас " << p.get_hp() << " здоровья.\n";
             break;
         } else {
             std::cout << "Лечение отменено.\n";
@@ -426,24 +414,10 @@ void hunting(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
     }
 }
 
-void add_to_backpack(Player& p, std::string item_name, int price) {
-    // Проверяем, есть ли уже такой предмет в рюкзаке
-    for (int i = 0; i < p.backpack.size(); i++) {
-        if (p.backpack[i].name == item_name) {
-            p.backpack[i].count++; // Нашли! Увеличиваем количество
-            return;
-        }
-    }
-    // Если цикл кончился и мы ничего не нашли, значит предмет новый!
-    InventoryItem new_item = {item_name, 1, price};
-    p.backpack.push_back(new_item); // Добавляем новый предмет в конец вектора
-}
-
-
 void dead(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cout << "Вы погибли... Игра окончена.\n";
-    std::cout << "Вы потеряли " << p.player_money << " монет.\n";
-    p.player_money = 0;
+    std::cout << "Вы потеряли " << p.get_money() << " монет.\n";
+    p.set_money(0);
     save_game(p, a, w, z);
 }
 
@@ -462,7 +436,7 @@ int player_attack_body(Player& p, Armor& a, Weapon& w, Zombie& z) {
 
     int idx = body_choice(generator);
     double mult = body_multipliers[idx];
-    int dmg = static_cast<int>(p.player_damage * mult * a.player_damage_multiplier * w.weapon_damage_mult);
+    int dmg = static_cast<int>(p.get_damage() * mult * a.player_damage_multiplier * w.weapon_damage_mult);
     z.zombie_hp -= dmg;
     std::cout << "Вы попали в " << body_parts[idx] << " и нанесли " << dmg << " урона! (патронов: " 
               << w.cartridges << "/" << w.max_cartridges << ")\n";
@@ -472,7 +446,7 @@ int player_attack_body(Player& p, Armor& a, Weapon& w, Zombie& z) {
 bool player_withdrawal(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cout << "Вы пытаетесь отойти...\n";
     if (shot_chance(generator) <= 3) {
-        z.attack(p, a);    // виртуальный вызов
+        z.attack(p, a);
         std::cout << "Вас задели, не получилось уйти.\n";
         return false;
     } else {
@@ -507,9 +481,9 @@ void player_attack(Player& p, Armor& a, Weapon& w, Zombie& z) {
         }
         std::cout << "У зомби осталось " << z.zombie_hp << " здоровья.\n";
     } else {
-        z.attack(p, a);   // виртуальный вызов
+        z.attack(p, a);
         std::cout << "Вы промахнулись!\n";
-        std::cout << "У вас осталось " << p.player_hp << " здоровья.\n";
+        std::cout << "У вас осталось " << p.get_hp() << " здоровья.\n";
     }
 }
 
@@ -517,12 +491,12 @@ void an_incomprehensible_action(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cout << "Непонятное действие. Зомби заметил вас!\n";
     int raw = zombieDmg(generator) * (2 * choise_damage);
     int dmg = static_cast<int>(raw * (1.0 - a.armor_absorption));
-    p.player_hp -= dmg;
+    p.take_damage(dmg);
 }
 
 void fight(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cout << "\nВы встретили зомби!\n";
-    while (p.player_hp > 0 && z.zombie_hp > 0) {
+    while (p.get_hp() > 0 && z.zombie_hp > 0) {
         std::cout << "Действия: Выстрел[1] / Отойти[2]\n";
         std::string choice;
         std::cin >> choice;
@@ -536,7 +510,7 @@ void fight(Player& p, Armor& a, Weapon& w, Zombie& z) {
             z.attack(p, a);
         }
     }
-    if (p.player_hp <= 0) { dead(p, a, w, z); exit(0); }
+    if (p.get_hp() <= 0) { dead(p, a, w, z); exit(0); }
     if (z.zombie_hp <= 0) {
         std::cout << "\nЗомби повержен! Поздравляю!\n";
         int xp_gain = xp_kill(generator);
@@ -551,7 +525,7 @@ void escape(Player& p, Armor& a, Weapon& w, Zombie& z) {
     if (shot_chance(generator) <= 3) {
         int raw = zombieDmg(generator) * (2 * choise_damage);
         int dmg = static_cast<int>(raw * (1.0 - a.armor_absorption));
-        p.player_hp -= dmg;
+        p.take_damage(dmg);
         std::cout << "Зомби задел вас, нанеся " << dmg << " урона.\n";
     } else {
         std::cout << "Вы благополучно убежали, но ящик не тронут.\n";
@@ -562,7 +536,7 @@ void hold_still_and_not_breathe(Player& p, Armor& a, Weapon& w, Zombie& z) {
     if (still_no_breathe(generator) == 1) {
         int raw = zombieDmg(generator) * (2 * choise_damage);
         int dmg = static_cast<int>(raw * (1.0 - a.armor_absorption));
-        p.player_hp -= dmg;
+        p.take_damage(dmg);
         std::cout << "\nЗомби вас учуял, нанеся " << dmg << " урона.\n";
     } else {
         std::cout << "\nВы скрылись.\n";
@@ -589,7 +563,7 @@ void quietly_behind_back(Player& p, Armor& a, Weapon& w, Zombie& z) {
     if (around(generator) <= 2) {
         int raw = zombieDmg(generator) * (2 * choise_damage);
         int dmg = static_cast<int>(raw * (1.0 - a.armor_absorption));
-        p.player_hp -= dmg;
+        p.take_damage(dmg);
         std::cout << "\nВас обнаружили, нанеся " << dmg << " урона.\n";
     } else {
         std::cout << "\nВы обошли зомби и обезвредили его!\n";
@@ -611,7 +585,7 @@ void stealth(Player& p, Armor& a, Weapon& w, Zombie& z) {
     else if (c == 4) quietly_behind_back(p, a, w, z);
     else an_incomprehensible_action(p, a, w, z);
 
-    if (p.player_hp <= 0) { dead(p, a, w, z); exit(0); }
+    if (p.get_hp() <= 0) { dead(p, a, w, z); exit(0); }
 }
 
 void number_hunting_one(Player& p, Armor& a, Weapon& w, Zombie& z) {
@@ -625,7 +599,7 @@ void number_hunting_one(Player& p, Armor& a, Weapon& w, Zombie& z) {
                   << " +[" << xp_gain << "] опыта!\n";
         
         add_xp(xp_gain, p, a, w);
-        add_to_backpack(p, drop_table_location_one[item_idx].name, drop_table_location_one[item_idx].sell_price);
+        p.add_item(drop_table_location_one[item_idx].name, drop_table_location_one[item_idx].sell_price);
     }
     p.show_backpack();
 }
@@ -644,7 +618,7 @@ void number_hunting_two(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& f
                 std::cout << "(Это быстрый зомби!)\n";
             }
             fight(p, a, w, *currentZ);
-            if (p.player_hp <= 0) return;
+            if (p.get_hp() <= 0) return;
             if (currentZ->zombie_hp > 0) { std::cout << "Зомби помешал обыскать!\n"; continue; }
         }
         int item_idx = item_loot_location_two(generator);
@@ -654,9 +628,9 @@ void number_hunting_two(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& f
                   << " +[" << xp_gain << "] опыта!\n";
 
         add_xp(xp_gain, p, a, w);
-        add_to_backpack(p, drop_table_location_two[item_idx].name, drop_table_location_two[item_idx].sell_price);
-        }
-        p.show_backpack();
+        p.add_item(drop_table_location_two[item_idx].name, drop_table_location_two[item_idx].sell_price);
+    }
+    p.show_backpack();
 }
 
 void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
@@ -670,7 +644,7 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
             if (enc(generator) == 5) {
                 std::cout << "Зомби у ящика " << i+1 << "!\n";
                 stealth(p, a, w, z);
-                if (p.player_hp <= 0) return;
+                if (p.get_hp() <= 0) return;
                 if (z.zombie_hp > 0) { std::cout << "Зомби помешал обыскать!\n"; continue; }
             }
             int item_idx = loot_location_three(generator);
@@ -679,7 +653,7 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
                       << " (цена: " << drop_table_location_three[item_idx].sell_price << ")"
                       << " +[" << xp_gain << "] опыта!\n";
             add_xp(xp_gain, p, a, w);
-            add_to_backpack(p, drop_table_location_three[item_idx].name, drop_table_location_three[item_idx].sell_price);
+            p.add_item(drop_table_location_three[item_idx].name, drop_table_location_three[item_idx].sell_price);
         }
         p.show_backpack();
     } else {
@@ -689,7 +663,7 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
             if (enc(generator) >= 3) {
                 std::cout << "Зомби у ящика " << i+1 << "!\n";
                 stealth(p, a, w, z);
-                if (p.player_hp <= 0) return;
+                if (p.get_hp() <= 0) return;
                 if (z.zombie_hp > 0) { std::cout << "Зомби помешал обыскать!\n"; continue; }
             }
             int item_idx = loot_location_three(generator);
@@ -699,7 +673,7 @@ void number_hunting_three(Player& p, Armor& a, Weapon& w, Zombie& z) {
                       << " (цена: " << price << ")"
                       << " +[" << xp_gain << "] опыта!\n";
             add_xp(xp_gain, p, a, w);
-            add_to_backpack(p, drop_table_location_three[item_idx].name, price);
+            p.add_item(drop_table_location_three[item_idx].name, price);
         }
     }
     p.show_backpack();
@@ -715,7 +689,6 @@ void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
     std::cin >> choise_workshop;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    // ----------- Экипировка -----------
     if (choise_workshop == 1) {
         struct ArmorInfo {
             std::string name;
@@ -757,12 +730,10 @@ void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
         a.player_max_hp = armors[idx].max_hp;
         a.armor_name = armors[idx].name;
 
-        if (p.player_hp > a.player_max_hp) p.player_hp = a.player_max_hp;
+        if (p.get_hp() > a.player_max_hp) p.set_hp(a.player_max_hp);
 
         std::cout << "Вы успешно экипировали " << armors[idx].name << "!\n";
     }
-
-    // ----------- Оружие -----------
     else if (choise_workshop == 2) {
         struct WeaponInfo {
             std::string name;
@@ -801,11 +772,11 @@ void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
         }
         int idx = choice_weapon - 1;
 
-        if (p.player_money < shop[idx].price) {
+        if (p.get_money() < shop[idx].price) {
             std::cout << "Недостаточно монет! Нужно " << shop[idx].price
-                      << ", у вас " << p.player_money << ".\n";
+                      << ", у вас " << p.get_money() << ".\n";
         } else {
-            p.player_money -= shop[idx].price;
+            p.reduce_money(shop[idx].price);
             w.current_weapon = choice_weapon;
             w.weapon_damage_mult = shop[idx].dmg_mult;
             w.accuracy_bonus = shop[idx].acc_bonus;
@@ -818,38 +789,30 @@ void workshop(Player& p, Armor& a, Weapon& w, Zombie& z) {
             std::cout << "Вы купили и экипировали " << shop[idx].name << "!\n";
         }
     }
-
-    // ---------- Верстак ----------
-else if (choise_workshop == 3) {
-    std::cout << "\nПочинка оружия (250 монет) и пополнение патронов (10 монета за патрон).\n";
-    std::cout << "Текущая прочность: " << w.endurance << "/100\n";
-    std::cout << "Патроны: " << w.cartridges << "/" << w.max_cartridges << "\n";
-    // починка
-    if (p.player_money >= 250 && w.endurance < 100) {
-        p.player_money -= 250;
-        w.endurance = 100;
-        std::cout << "Оружие полностью отремонтировано.\n";
-    }
-    // пополнение патронов
-    int needed = w.max_cartridges - w.cartridges;
-    if (needed > 0) {
-        int cost = needed * 10;  // 10 монета за патрон
-        if (p.player_money >= cost) {
-            p.player_money -= cost;
-            w.cartridges = w.max_cartridges;
-            std::cout << "Патроны пополнены до " << w.max_cartridges << ".\n";
-        } else {
-            std::cout << "Недостаточно денег для полной закупки патронов.\n";
+    else if (choise_workshop == 3) {
+        std::cout << "\nПочинка оружия (250 монет) и пополнение патронов (10 монета за патрон).\n";
+        std::cout << "Текущая прочность: " << w.endurance << "/100\n";
+        std::cout << "Патроны: " << w.cartridges << "/" << w.max_cartridges << "\n";
+        if (p.get_money() >= 250 && w.endurance < 100) {
+            p.reduce_money(250);
+            w.endurance = 100;
+            std::cout << "Оружие полностью отремонтировано.\n";
+        }
+        int needed = w.max_cartridges - w.cartridges;
+        if (needed > 0) {
+            int cost = needed * 10;
+            if (p.get_money() >= cost) {
+                p.reduce_money(cost);
+                w.cartridges = w.max_cartridges;
+                std::cout << "Патроны пополнены до " << w.max_cartridges << ".\n";
+            } else {
+                std::cout << "Недостаточно денег для полной закупки патронов.\n";
+            }
         }
     }
-}
-
-    // ---------- Обвесы ----------
     else if (choise_workshop == 4) {
         std::cout << "Обвесы в разработке.\n";
     }
-
-    // ---------- Неверный выбор ----------
     else {
         std::cout << "Неверный выбор.\n";
     }
@@ -859,8 +822,8 @@ void menu(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
     std::cout << "\n=== БАЗА ===\n";
     int choice;
     while (true) {
-        std::cout << "Баланс: " << p.player_money << " монет | Здоровье: " << p.player_hp << "/" << a.player_max_hp
-                  << " | Уровень: " << p.player_level << " (XP: " << p.player_xp << "/" << p.xp_for_next_level() << ")\n";
+        std::cout << "Баланс: " << p.get_money() << " монет | Здоровье: " << p.get_hp() << "/" << a.player_max_hp
+                  << " | Уровень: " << p.get_level() << " (XP: " << p.get_xp() << "/" << p.xp_for_next_level() << ")\n";
         std::cout << "1 - Охота\n2 - Больница\n3 - Мастерская\n4 - Сохранить\n5 - Статистика\n6 - Скупщик\n7 - Выход\n";
         std::cin >> choice;
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -878,8 +841,8 @@ void menu(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
 void hello(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
     load_game(p, a, w, z);
 
-    if (p.player_reg == 1) {
-        std::cout << "С возвращением, " << p.player_name << "!\n";
+    if (p.get_reg() == 1) {
+        std::cout << "С возвращением, " << p.get_name() << "!\n";
         menu(p, a, w, z, fz);
     } else {
         std::cout << "Текстовая RPG с системой уровней!\nВведите никнейм: ";
@@ -895,18 +858,17 @@ void hello(Player& p, Armor& a, Weapon& w, Zombie& z, FastZombie& fz) {
                 std::cout << "Длина от 6 до 17 символов!\n";
             }
         }
-        p.player_name = name;
-        if (p.player_damage == 20) {
-            p.player_damage = 20 + playerDmg(generator);
+        p.set_name(name);
+        if (p.get_damage() == 20) {
+            p.set_damage(20 + playerDmg(generator));
         }
-        p.player_reg = 1;
+        p.set_reg(1);
         save_game(p, a, w, z);
         std::cout << "Добро пожаловать, " << name << "!\n";
         menu(p, a, w, z, fz);
     }
 }
 
-// -------------------- main --------------------
 int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);

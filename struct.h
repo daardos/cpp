@@ -1,5 +1,3 @@
-// g++ struct.h -o struct
-
 #ifndef STRUCT_H
 #define STRUCT_H
 
@@ -43,7 +41,8 @@ struct InventoryItem {
     int sell_price = 0;
 };
 
-struct Player {
+class Player {
+private:
     std::string player_name;
     int player_hp = 100;
     int player_damage = 20;
@@ -52,11 +51,68 @@ struct Player {
     int player_xp = 0;
     int player_reg = 0;
 
+    std::vector<InventoryItem> backpack;
+
+public:
+    // --- Геттеры и сеттеры, добавленные для полной инкапсуляции ---
+    int get_money() const { return player_money; }
+    void set_money(int value) { player_money = value; }
+    void add_money(int amount) { player_money += amount; }
+    void reduce_money(int amount) { 
+        player_money -= amount; 
+        if (player_money < 0) player_money = 0;
+    }
+
+    int get_hp() const { return player_hp; }
+    void set_hp(int value) { player_hp = value; }
+    void take_damage(int damage) {
+        player_hp -= damage;
+        if (player_hp < 0) player_hp = 0;
+    }
+    void heal_player(int amount, int max_hp) {
+        player_hp += amount;
+        if (player_hp > max_hp) player_hp = max_hp;
+    }
+
+    int get_level() const { return player_level; }
+    void set_level(int value) { player_level = value; }
+    void add_level(int amount) { player_level += amount; }
+
+    int get_xp() const { return player_xp; }
+    void set_xp(int value) { player_xp = value; }
+    void xp_up(int amount) { player_xp += amount; }
+    void xp_nup(int amount) { player_xp -= amount; }
+
+    int get_damage() const { return player_damage; }
+    void set_damage(int value) { player_damage = value; }
+
+    std::string get_name() const { return player_name; }
+    void set_name(const std::string& name) { player_name = name; }
+
+    int get_reg() const { return player_reg; }
+    void set_reg(int value) { player_reg = value; }
+
+    // --- Конструктор с именем ---
+    Player(std::string name = "Unknown") {
+        player_name = name;
+        player_hp = 100;
+        player_money = 500;
+    }
+
     int xp_for_next_level() const {
         return player_level * 200 + player_level * player_level * 5;
     }
 
-    std::vector<InventoryItem> backpack;
+    // --- Методы рюкзака ---
+    void add_item(const std::string& item_name, int price) {
+        for (size_t i = 0; i < backpack.size(); ++i) {
+            if (backpack[i].name == item_name) {
+                backpack[i].count++;
+                return;
+            }
+        }
+        backpack.push_back({item_name, 1, price});
+    }
 
     void show_backpack() const {
         std::cout << "\n--- СОДЕРЖИМОЕ РЮКЗАКА ---\n";
@@ -69,9 +125,8 @@ struct Player {
         }
         std::cout << "----------------------------\n";
     }
-    
+
     void sell_all_loot() {
-        // Контекстные фразы для конкретных предметов
         static const std::map<std::string, std::vector<std::string>> item_phrases = {
             {"Металлолом", {
                 "Скупщик: Металлолом? А я думал, ты решил меня удивить ржавым ведром. О, так и есть.",
@@ -113,7 +168,6 @@ struct Player {
             }}
         };
 
-        // Общие фразы
         static const std::string generic_phrases[] = {
             "Скупщик: Ну-с, показывай, что нарыл. Только не говори, что опять припёр ржавые гвозди.",
             "Скупщик: О! Опять этот сталкер со своим барахлом. Давай, выкладывай, пока зомби не набежали.",
@@ -131,19 +185,16 @@ struct Player {
             return;
         }
 
-        // Ищем предмет, для которого есть особая фраза
         std::string chosen_phrase;
         for (const auto& item : backpack) {
             auto it = item_phrases.find(item.name);
             if (it != item_phrases.end() && !it->second.empty()) {
-                // Берём случайную фразу для этого предмета
                 std::uniform_int_distribution<int> dist(0, it->second.size() - 1);
                 chosen_phrase = it->second[dist(generator)];
                 break;
             }
         }
 
-        // Если не нашли подходящую, берём случайную общую фразу
         if (chosen_phrase.empty()) {
             std::uniform_int_distribution<int> dist(0, sizeof(generic_phrases)/sizeof(generic_phrases[0]) - 1);
             chosen_phrase = generic_phrases[dist(generator)];
@@ -156,7 +207,7 @@ struct Player {
             total_earned += backpack[i].count * backpack[i].sell_price;
         }
 
-        player_money += total_earned;
+        add_money(total_earned);
         backpack.clear();
 
         std::cout << "Скупщик прикинул вес рюкзака и выдал вам " << total_earned 
