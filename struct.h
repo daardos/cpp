@@ -8,11 +8,42 @@
 #include <map>
 
 extern std::mt19937 generator;
+extern std::uniform_int_distribution<int> zombieDmg;
+extern std::uniform_int_distribution<int> zombieSpeedDmg;
 
-struct Player;
-struct Armor;
+// ------------------- Интерфейс урона -------------------
+class IDamageable {
+public:
+    virtual void take_damage(int amount) = 0;
+    virtual ~IDamageable() {}
+};
 
-struct Weapon {
+// ------------------- Структуры предметов -------------------
+struct LootItem {
+    std::string name;
+    int sell_price;
+};
+
+// ------------------- Аптечки -------------------
+class Hel {
+private:
+    std::string hel_name;
+    int regeneration = 35;
+    int hel = 0;
+
+public:
+    std::string get_name() const { return hel_name; }
+    int get_regeneration() const { return regeneration; }
+
+    int get_hel() const { return hel; }
+
+    void add_hel(int amount) { hel += amount; }
+    void set_hel(int amount) { hel = amount; }
+};
+
+// ------------------- Оружие -------------------
+class Weapon {
+private:
     std::string name = "Без оружия";
     int current_weapon = 0;
     double weapon_damage_mult = 1.0;
@@ -25,23 +56,64 @@ struct Weapon {
     int cartridges = 30;
     int max_cartridges = 30;
     int endurance = 100;
+
+public:
+    // Геттеры
+    std::string get_name() const { return name; }
+    int get_current_weapon() const { return current_weapon; }
+    double get_weapon_damage_mult() const { return weapon_damage_mult; }
+    int get_accuracy_bonus() const { return accuracy_bonus; }
+    double get_weapon_loot_speed() const { return weapon_loot_speed; }
+    double get_double_shot_chance() const { return double_shot_chance; }
+    double get_guaranteed_kill_chance() const { return guaranteed_kill_chance; }
+    double get_silencer_dodge_chance() const { return silencer_dodge_chance; }
+    int get_cartridges() const { return cartridges; }
+    int get_max_cartridges() const { return max_cartridges; }
+    int get_endurance() const { return endurance; }
+
+    // Сеттеры
+    void set_name(const std::string& n) { name = n; }
+    void set_current_weapon(int value) { current_weapon = value; }
+    void set_weapon_damage_mult(double value) { weapon_damage_mult = value; }
+    void set_accuracy_bonus(int value) { accuracy_bonus = value; }
+    void set_weapon_loot_speed(double value) { weapon_loot_speed = value; }
+    void set_double_shot_chance(double value) { double_shot_chance = value; }
+    void set_guaranteed_kill_chance(double value) { guaranteed_kill_chance = value; }
+    void set_silencer_dodge_chance(double value) { silencer_dodge_chance = value; }
+    void set_cartridges(int value) { cartridges = value; }
+    void set_endurance(int value) { endurance = value; }
+
+    // Добавление
+    void add_cartridges(int amount) { cartridges += amount; }
+    void add_endurance(int amount) { endurance += amount; }
+    void add_guaranteed_kill_chance(double amount) { guaranteed_kill_chance += amount; }
+
+    // Удаление
+    void remuve_cartridges(int amount) { cartridges -= amount; }
+    void remuve_endurance(int amount) { endurance -= amount; }
 };
 
+// ------------------- Броня -------------------
 struct Armor {
     std::string armor_name;
     double armor_absorption = 0.0;
     double player_damage_multiplier = 1.0;
     double loot_speed_multiplier = 1.0;
     int player_max_hp = 100;
+    int player_max_energe = 100;
+
+    void add_max_energe(int amount) { player_max_energe += amount; }
 };
 
+// ------------------- Предмет в рюкзаке -------------------
 struct InventoryItem {
     std::string name;
     int count = 0;
     int sell_price = 0;
 };
 
-class Player {
+// ------------------- Игрок -------------------
+class Player : public IDamageable {
 private:
     std::string player_name;
     int player_hp = 100;
@@ -50,22 +122,32 @@ private:
     int player_level = 1;
     int player_xp = 0;
     int player_reg = 0;
-
+    int energe = 100;
     std::vector<InventoryItem> backpack;
 
 public:
-    // --- Геттеры и сеттеры, добавленные для полной инкапсуляции ---
+    Player(std::string name = "Unknown") {
+        player_name = name;
+        player_hp = 100;
+        player_money = 500;
+    }
+
+    int get_energe() const { return energe; }
+    void add_energe(int amount) { energe += amount; }
+    void set_energe(int amount) { energe = amount; }
+    void reduce_energe(int amount) { energe -= amount; }
+
     int get_money() const { return player_money; }
     void set_money(int value) { player_money = value; }
     void add_money(int amount) { player_money += amount; }
-    void reduce_money(int amount) { 
-        player_money -= amount; 
+    void reduce_money(int amount) {
+        player_money -= amount;
         if (player_money < 0) player_money = 0;
     }
 
     int get_hp() const { return player_hp; }
     void set_hp(int value) { player_hp = value; }
-    void take_damage(int damage) {
+    void take_damage(int damage) override {
         player_hp -= damage;
         if (player_hp < 0) player_hp = 0;
     }
@@ -92,22 +174,14 @@ public:
     int get_reg() const { return player_reg; }
     void set_reg(int value) { player_reg = value; }
 
-    // --- Конструктор с именем ---
-    Player(std::string name = "Unknown") {
-        player_name = name;
-        player_hp = 100;
-        player_money = 500;
-    }
-
     int xp_for_next_level() const {
         return player_level * 200 + player_level * player_level * 5;
     }
 
-    // --- Методы рюкзака ---
     void add_item(const std::string& item_name, int price) {
-        for (size_t i = 0; i < backpack.size(); ++i) {
-            if (backpack[i].name == item_name) {
-                backpack[i].count++;
+        for (auto& item : backpack) {
+            if (item.name == item_name) {
+                item.count++;
                 return;
             }
         }
@@ -119,116 +193,46 @@ public:
         if (backpack.empty()) {
             std::cout << "Рюкзак пуст.\n";
         } else {
-            for (size_t i = 0; i < backpack.size(); ++i) {
-                std::cout << backpack[i].name << ": " << backpack[i].count << " шт.\n";
-            }
+            for (const auto& item : backpack)
+                std::cout << item.name << ": " << item.count << " шт.\n";
         }
         std::cout << "----------------------------\n";
     }
 
-    void sell_all_loot() {
-        static const std::map<std::string, std::vector<std::string>> item_phrases = {
-            {"Металлолом", {
-                "Скупщик: Металлолом? А я думал, ты решил меня удивить ржавым ведром. О, так и есть.",
-                "Скупщик: Опять этот металлолом... Ты случайно не разбираешь старые танки? Ладно, беру.",
-                "Скупщик: Ржавое железо! Моя любимая головная боль. Давай сюда."
-            }},
-            {"Батарейка", {
-                "Скупщик: Батарейка... Пальчиковая? Из пульта от телевизора? Беру, но только из жалости.",
-                "Скупщик: Батарейки кончились? А у тебя их целый мешок! Заряжай цену."
-            }},
-            {"Тряпка", {
-                "Скупщик: Тряпка. Она хоть стираная? Ладно, не отвечай, я всё равно её сожгу.",
-                "Скупщик: Тряпки, тряпки… У меня скоро склад лоскутов будет. Скидывай."
-            }},
-            {"Аптечка", {
-                "Скупщик: Аптечка? Ты хоть знаешь, сколько она стоит? Ладно, давай, пока не просрочена."
-            }},
-            {"Патроны", {
-                "Скупщик: Патроны! Надеюсь, не холостые. Проверим на ближайшем зомби, но деньги сначала."
-            }},
-            {"Деталь оружия", {
-                "Скупщик: Деталь оружия… Ты что, разобрал чей-то ствол? Молодец, неси."
-            }},
-            {"Золотая цепочка", {
-                "Скупщик: Золотая цепочка. Скажи честно: снял с мертвеца или стащил у бывшей?",
-                "Скупщик: Золотишко блестит – монеты хрустят. Выкладывай."
-            }},
-            {"Кристалл", {
-                "Скупщик: Ого, кристалл! Ты что, ограбил ювелирный? Или это из зубов зомби выковырял?",
-                "Скупщик: Кристаллы… они мне напоминают о разбитых мечтах и высокой прибыли."
-            }},
-            {"Редкий артефакт", {
-                "Скупщик: Редкий артефакт! Выглядит так, будто ему место в музее... или в мусорном баке, одно из двух.",
-                "Скупщик: Артефакт? Да за такое антиквары удавятся. Но я дам хорошую цену, не бойся."
-            }},
-            {"Схема обвеса", {
-                "Скупщик: Схема обвеса? Ты хоть понимаешь, что это? Я тоже нет, но звучит дорого. Заверни.",
-                "Скупщик: Бумажка с каракулями? Или правда схема? Ладно, инженеры разберутся."
-            }}
-        };
+    void sell_all_loot();
+};
 
-        static const std::string generic_phrases[] = {
-            "Скупщик: Ну-с, показывай, что нарыл. Только не говори, что опять припёр ржавые гвозди.",
-            "Скупщик: О! Опять этот сталкер со своим барахлом. Давай, выкладывай, пока зомби не набежали.",
-            "Скупщик: Снова здравствуй, мой любимый поставщик мусора.",
-            "Скупщик: Я надеюсь, ты принёс что-то ценнее, чем собственная печень?",
-            "Скупщик: Ну что, опять «золотые» часы, которые уже трижды переплавляли?",
-            "Скупщик: Ещё один «артефакт» из помойки. Ты случайно не экстрасенс?",
-            "Скупщик: Тряпки, кристаллы... Ты случайно не сорока, блестящее тащишь?",
-            "Скупщик: Надеюсь, ты эти вещи вытащил из ящика, а не из чьего-то кармана? Хотя мне всё равно.",
-            "Скупщик: Сегодня у меня философское настроение. Видишь этот хлам? Вот так и жизнь — пыль и тлен. Но монеты приму."
-        };
+// ------------------- Зомби (базовый) -------------------
+struct Zombie : public IDamageable {
+    int zombie_dmg = 10;
+    int zombie_hp = 100;
 
-        if (backpack.empty()) {
-            std::cout << "Скупщик: Эй, у тебя рюкзак пустой! Проваливай, не морочь мне голову!\n";
-            return;
+    virtual void attack(Player& p, Armor& a);
+
+    int get_random_damage() {
+        return zombieDmg(generator);
+    }
+
+    void print_attack_phrase() {
+        int action = generator() % 3;
+        switch (action) {
+            case 0: std::cout << "Зомби спотыкается о собственные кишки и падает на вас всем весом — вы придавлены!\n"; break;
+            case 1: std::cout << "Зомби пытается плюнуть кислотой, но у него отваливается челюсть, и он просто шлёпает вас языком.\n"; break;
+            case 2: std::cout << "Зомби делает страшное лицо и начинает быстро-быстро трясти головой — вы получаете удар болтающейся кожей!\n"; break;
         }
+    }
 
-        std::string chosen_phrase;
-        for (const auto& item : backpack) {
-            auto it = item_phrases.find(item.name);
-            if (it != item_phrases.end() && !it->second.empty()) {
-                std::uniform_int_distribution<int> dist(0, it->second.size() - 1);
-                chosen_phrase = it->second[dist(generator)];
-                break;
-            }
-        }
-
-        if (chosen_phrase.empty()) {
-            std::uniform_int_distribution<int> dist(0, sizeof(generic_phrases)/sizeof(generic_phrases[0]) - 1);
-            chosen_phrase = generic_phrases[dist(generator)];
-        }
-
-        std::cout << chosen_phrase << "\n";
-
-        int total_earned = 0;
-        for (size_t i = 0; i < backpack.size(); ++i) {
-            total_earned += backpack[i].count * backpack[i].sell_price;
-        }
-
-        add_money(total_earned);
-        backpack.clear();
-
-        std::cout << "Скупщик прикинул вес рюкзака и выдал вам " << total_earned 
-                  << " монет. Баланс: " << player_money << ".\n";
+    void take_damage(int amount) override {
+        zombie_hp -= amount;
+        if (zombie_hp < 0) zombie_hp = 0;
     }
 };
 
-struct Zombie {
-    int zombie_dmg = 10;
-    int zombie_hp = 100;
-    virtual void attack(Player& p, Armor& a);
-};
-
-struct FastZombie : Zombie {
+// ------------------- Быстрый зомби -------------------
+struct FastZombie : public Zombie {
     int speed = 2;
-    void attack(Player& p, Armor& a) override;
-};
 
-struct LootItem {
-    std::string name;
-    int sell_price;
+    void attack(Player& p, Armor& a) override;
 };
 
 #endif
