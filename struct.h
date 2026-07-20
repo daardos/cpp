@@ -94,15 +94,37 @@ public:
 };
 
 // ------------------- Броня -------------------
-struct Armor {
-    std::string armor_name;
-    double armor_absorption = 0.0;
+class Armor {
+private:
+    std::string armor_name = "Начальная броня";
+    double armor_absorption = -0.05;
     double player_damage_multiplier = 1.0;
-    double loot_speed_multiplier = 1.0;
+    double loot_speed_multiplier = 0.8;
     int player_max_hp = 100;
     int player_max_energe = 100;
 
+public:
+    // Геттеры
+    std::string get_name() const { return armor_name; }
+    double get_armor_absorption() const { return armor_absorption; }
+    double get_player_damage_multiplier() const { return player_damage_multiplier; }
+    double get_loot_speed_multiplier() const { return loot_speed_multiplier; }
+    int get_player_max_hp() const { return player_max_hp; }
+    int get_player_max_energe() const { return player_max_energe; }
+
+    // Сеттеры
+    void set_armor_absorption(double amount) { armor_absorption = amount; }
+    void set_player_damage_multiplier(double amount) { player_damage_multiplier = amount; }
+    void set_loot_speed_multiplier(double amount) { loot_speed_multiplier = amount; }
+    void set_max_energe(int amount) { player_max_energe = amount; }
+    void set_player_max_hp(int amount) { player_max_hp = amount; }
+
+    // Методы добавления
+    void add_armor_absorption(double amount) { armor_absorption += amount; }
+    void add_player_damage_multiplier(double amount) { player_damage_multiplier += amount; }
+    void add_loot_speed_multiplier(double amount) { loot_speed_multiplier += amount; }
     void add_max_energe(int amount) { player_max_energe += amount; }
+    void add_player_max_hp(int amount) { player_max_hp += amount; }
 };
 
 // ------------------- Предмет в рюкзаке -------------------
@@ -110,6 +132,7 @@ struct InventoryItem {
     std::string name;
     int count = 0;
     int sell_price = 0;
+    int value = 0;
 };
 
 // ------------------- Игрок -------------------
@@ -124,6 +147,9 @@ private:
     int player_reg = 0;
     int energe = 100;
     std::vector<InventoryItem> backpack;
+    Armor current_armor;
+    Weapon current_weapon;
+    static std::string choose_phrase(const std::vector<InventoryItem>& bp);
 
 public:
     Player(std::string name = "Unknown") {
@@ -132,11 +158,21 @@ public:
         player_money = 500;
     }
 
+    // Броня
+    const Armor& get_armor() const { return current_armor; }
+    Armor& get_armor_mutable() { return current_armor; }
+
+    // Оружие
+    const Weapon& get_weapon() const { return current_weapon; }
+    Weapon& get_weapon_mutable() { return current_weapon; }
+
+    // Энергия
     int get_energe() const { return energe; }
     void add_energe(int amount) { energe += amount; }
     void set_energe(int amount) { energe = amount; }
     void reduce_energe(int amount) { energe -= amount; }
 
+    // Деньги
     int get_money() const { return player_money; }
     void set_money(int value) { player_money = value; }
     void add_money(int amount) { player_money += amount; }
@@ -145,6 +181,7 @@ public:
         if (player_money < 0) player_money = 0;
     }
 
+    // Здоровье
     int get_hp() const { return player_hp; }
     void set_hp(int value) { player_hp = value; }
     void take_damage(int damage) override {
@@ -156,6 +193,7 @@ public:
         if (player_hp > max_hp) player_hp = max_hp;
     }
 
+    // Уровень и опыт
     int get_level() const { return player_level; }
     void set_level(int value) { player_level = value; }
     void add_level(int amount) { player_level += amount; }
@@ -178,14 +216,17 @@ public:
         return player_level * 200 + player_level * player_level * 5;
     }
 
-    void add_item(const std::string& item_name, int price) {
+    void save_inventory(const std::string& filename) const;
+    void load_inventory(const std::string& filename);
+
+    void add_item(const std::string& item_name, int price, int val = 0) {
         for (auto& item : backpack) {
             if (item.name == item_name) {
                 item.count++;
                 return;
             }
         }
-        backpack.push_back({item_name, 1, price});
+        backpack.push_back({item_name, 1, price, val});
     }
 
     void show_backpack() const {
@@ -207,7 +248,7 @@ struct Zombie : public IDamageable {
     int zombie_dmg = 10;
     int zombie_hp = 100;
 
-    virtual void attack(Player& p, Armor& a);
+    virtual void attack(Player& p);
 
     int get_random_damage() {
         return zombieDmg(generator);
@@ -232,7 +273,7 @@ struct Zombie : public IDamageable {
 struct FastZombie : public Zombie {
     int speed = 2;
 
-    void attack(Player& p, Armor& a) override;
+    void attack(Player& p) override;
 };
 
 #endif
